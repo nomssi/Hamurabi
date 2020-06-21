@@ -1,8 +1,3 @@
-*&---------------------------------------------------------------------*
-*& Report zhamurabi
-*&---------------------------------------------------------------------*
-*&
-*&---------------------------------------------------------------------*
 REPORT zhamurabi.
 
 CLASS lcl_hamurabi DEFINITION.
@@ -32,21 +27,21 @@ CLASS lcl_hamurabi DEFINITION.
 
     METHODS proceed_one_year_in_regency.
 
-    METHODS confirm_acres_to_sell
+    METHODS try_to_sell_land
       IMPORTING
-         user_input TYPE i.
+         acres TYPE i.
 
-    METHODS confirm_acres_to_plant
+    METHODS try_to_grow_crops
       IMPORTING
-        user_input TYPE i.
+        acres TYPE i.
 
-    METHODS confirm_bushels_to_feed_people
+    METHODS try_to_feed_people
       IMPORTING
-        user_input TYPE i.
+        bushels TYPE i.
 
-    METHODS confirm_bushels_to_buy
+    METHODS try_to_buy_land
       IMPORTING
-        user_input TYPE i.
+        acres TYPE i.
 
     METHODS calculate_new_acre_price.
 
@@ -174,11 +169,11 @@ CLASS lcl_hamurabi IMPLEMENTATION.
     stats-amount_stored_bushels = stats-amount_stored_bushels - ( amount_acres_to_plant / 2 ).
   ENDMETHOD.
 
-  METHOD confirm_acres_to_plant.
-    CHECK enough_acres_to_plant( user_input )
-      AND enough_grain_to_seed( user_input )
-      AND enough_people_to_tend_crops( user_input ).
-    plant_acres( user_input ).
+  METHOD try_to_grow_crops.
+    CHECK enough_acres_to_plant( acres )
+      AND enough_grain_to_seed( acres )
+      AND enough_people_to_tend_crops( acres ).
+    plant_acres( acres ).
     set_game_phase( 6 ).
   ENDMETHOD.
 
@@ -205,10 +200,10 @@ CLASS lcl_hamurabi IMPLEMENTATION.
     stats-amount_stored_bushels = stats-amount_stored_bushels - amount_bushels.
   ENDMETHOD.
 
-  METHOD confirm_bushels_to_buy.
-    CHECK enough_bushels_to_buy( user_input ).
-    buy_acres( user_input ).
-    set_game_phase( 3 ).
+  METHOD try_to_buy_land.
+    CHECK enough_bushels_to_buy( acres ).
+    buy_acres( acres ).
+    set_game_phase( 3 ).  " Now sell land
   ENDMETHOD.
 
   METHOD enough_bushels_to_buy.
@@ -222,10 +217,10 @@ CLASS lcl_hamurabi IMPLEMENTATION.
     stats-amount_stored_bushels = stats-amount_stored_bushels - ( stats-current_acre_price * amount_acres_to_buy ).
   ENDMETHOD.
 
-  METHOD confirm_acres_to_sell.
-    CHECK enough_acres_to_sell( user_input ).
-    sell_acres( user_input ).
-    set_game_phase( 4 ).
+  METHOD try_to_sell_land.
+    CHECK enough_acres_to_sell( acres ).
+    sell_acres( acres ).
+    set_game_phase( 4 ).  " Now feed your people
   ENDMETHOD.
 
   METHOD enough_acres_to_sell.
@@ -239,9 +234,9 @@ CLASS lcl_hamurabi IMPLEMENTATION.
     stats-amount_stored_bushels = stats-amount_stored_bushels + ( stats-current_acre_price * amount_acres_to_sell ).
   ENDMETHOD.
 
-  METHOD confirm_bushels_to_feed_people.
-    IF enough_bushels_to_feed_people( user_input ).
-      feed_people( user_input ).
+  METHOD try_to_feed_people.
+    IF enough_bushels_to_feed_people( bushels ).
+      feed_people( bushels ).
       set_game_phase( 5 ).
     ENDIF.
   ENDMETHOD.
@@ -368,7 +363,7 @@ CLASS lcl_hamurabi_classic_ui IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD handle_round_end.
-    mo_logic->confirm_acres_to_plant( user_input ).
+    mo_logic->try_to_grow_crops( user_input ).
 
     IF mo_logic->stats-game_phase = 6.
       screen = 0.
@@ -381,7 +376,7 @@ CLASS lcl_hamurabi_classic_ui IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD handle_plant_phase.
-    mo_logic->confirm_bushels_to_feed_people( user_input ).
+    mo_logic->try_to_feed_people( user_input ).
 
     IF mo_logic->stats-game_phase = 5.
       output_statistics( mo_logic->stats ).
@@ -392,7 +387,7 @@ CLASS lcl_hamurabi_classic_ui IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD handle_feed_phase.
-    mo_logic->confirm_acres_to_sell( user_input ).
+    mo_logic->try_to_sell_land( user_input ).
 
     IF mo_logic->stats-game_phase = 4.
       output_statistics( mo_logic->stats ).
@@ -403,7 +398,7 @@ CLASS lcl_hamurabi_classic_ui IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD handle_sell_phase.
-    mo_logic->confirm_bushels_to_buy( user_input ).
+    mo_logic->try_to_buy_land( user_input ).
 
     IF mo_logic->stats-game_phase = 3.
       output_statistics( mo_logic->stats ).
