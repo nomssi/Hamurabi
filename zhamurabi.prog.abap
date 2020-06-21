@@ -25,7 +25,7 @@ CLASS lcl_hamurabi DEFINITION.
 
     METHODS set_game_phase IMPORTING phase TYPE i.
 
-    METHODS proceed_one_year_in_regency.
+    METHODS proceed_one_year_in_regency IMPORTING acres_harvested TYPE i.
 
     METHODS try_to_sell_land
       IMPORTING
@@ -52,9 +52,9 @@ CLASS lcl_hamurabi DEFINITION.
 
     METHODS calculate_new_citizens.
 
-    METHODS calculate_population.
+    METHODS calculate_population_loss.
 
-    METHODS harvest  " not used
+    METHODS harvest
       IMPORTING
         amount_acres_to_plant TYPE i.
 
@@ -140,7 +140,8 @@ CLASS lcl_hamurabi IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD calculate_population.
+  METHOD calculate_population_loss.
+    " How many starved?
     DATA(full_people) = stats-amount_bushels_fed_to_people / 20.
 
     IF stats-population > full_people.
@@ -148,7 +149,7 @@ CLASS lcl_hamurabi IMPLEMENTATION.
       stats-population = full_people.
     ENDIF.
 
-    " Plage erst nach der Berechnung der Bevölkerung
+    " If there was a plague, 50% died
     IF random( 100 ) <= 15.
       stats-population = stats-population / 2.
     ENDIF.
@@ -156,6 +157,7 @@ CLASS lcl_hamurabi IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD calculate_new_citizens.
+    " how many came to the city
     stats-amount_new_citizens = random( 6 ) * ( 20 * stats-amount_acres + stats-amount_stored_bushels ) / stats-population / ( 100 + 1 ).
     stats-population = stats-population + stats-amount_new_citizens.
   ENDMETHOD.
@@ -249,8 +251,9 @@ CLASS lcl_hamurabi IMPLEMENTATION.
 
   METHOD proceed_one_year_in_regency.
     stats-year_of_regency = CONV numc2( stats-year_of_regency + 1 ).
-    calculate_population( ).
+    calculate_population_loss( ).
     calculate_new_citizens( ).
+    harvest( acres_harvested ).
     calculate_new_acre_price( ).
   ENDMETHOD.
 
@@ -279,7 +282,7 @@ CLASS lcl_hamurabi_classic_ui DEFINITION.
       CHANGING
         screen     LIKE sy-lsind.
 
-    METHODS output_title.
+    CLASS-METHODS output_title.
 
   PRIVATE SECTION.
     CONSTANTS: BEGIN OF screen_enum,
@@ -368,7 +371,7 @@ CLASS lcl_hamurabi_classic_ui IMPLEMENTATION.
     IF mo_logic->stats-game_phase = 6.
       screen = 0.
       mo_logic->set_game_phase( 2 ).
-      mo_logic->proceed_one_year_in_regency( ).
+      mo_logic->proceed_one_year_in_regency( user_input ).
       output_report( mo_logic->stats ).
     ELSE.
       screen = screen_enum-plant.
@@ -445,7 +448,7 @@ DATA user_input TYPE i.
 **********************************************************************
 
 TOP-OF-PAGE DURING LINE-SELECTION.
-  hamurabi_classic_ui->output_title( ).
+  lcl_hamurabi_classic_ui=>output_title( ).
 
 START-OF-SELECTION.
   hamurabi_classic_ui = NEW lcl_hamurabi_classic_ui( ).
