@@ -17,15 +17,16 @@
 * new people come to the city each year in random amounts.
 * Each year also presents the possibility of a plague reducing the population by half.
 
-REPORT zz_hamurabi.
+REPORT zz_hamurabi. " Hammurabi
 
 TYPES: BEGIN OF state,
          year_of_regency              TYPE numc2,
          game_phase                   TYPE i,
 
          population                   TYPE i,
-         amount_stored_bushels        TYPE i,
          amount_acres                 TYPE i,
+
+         amount_stored_bushels        TYPE i,
          amount_starved_people        TYPE i,
          amount_cropped_bushels       TYPE i,
          cropped_bushels_per_acre     TYPE i,
@@ -35,6 +36,9 @@ TYPES: BEGIN OF state,
 
          amount_bushels_fed_to_people TYPE i,
          amount_bushels_eaten_by_rats TYPE i,
+
+         number_of_deaths             TYPE i,
+         total_starved_people         TYPE i,
        END OF state.
 
 CONSTANTS: BEGIN OF phase,
@@ -120,8 +124,9 @@ CLASS lcl_regency IMPLEMENTATION.
 
   METHOD constructor.
     stats = is_stats.
-    stats-amount_bushels_eaten_by_rats = stats-amount_cropped_bushels - stats-amount_stored_bushels.
-    stats-amount_acres = stats-amount_cropped_bushels / stats-current_acre_price.
+    stats-amount_cropped_bushels = stats-amount_acres * stats-cropped_bushels_per_acre.
+    stats-amount_stored_bushels = stats-amount_cropped_bushels - stats-amount_bushels_eaten_by_rats.
+    stats-current_acre_price = stats-amount_cropped_bushels / stats-amount_acres.
   ENDMETHOD.
 
   METHOD set_phase.
@@ -136,11 +141,14 @@ CLASS lcl_regency IMPLEMENTATION.
       stats-amount_starved_people = stats-population - full_people.
       stats-population = full_people.
     ENDIF.
+    stats-number_of_deaths = stats-number_of_deaths + stats-amount_starved_people.
+    stats-total_starved_people = stats-total_starved_people + stats-amount_starved_people.
 
     " If there was a plague, 50% died
     IF random( 100 ) <= 15.
       stats-plague_event = abap_true.
       stats-population = stats-population / 2.
+      stats-number_of_deaths = stats-number_of_deaths + stats-population.
     ELSE.
       stats-plague_event = abap_false.
     ENDIF.
@@ -175,7 +183,7 @@ CLASS lcl_regency IMPLEMENTATION.
   METHOD enough_people_to_tend_crops.
     result = xsdbool( amount_acres_to_plant < ( 10 * stats-population ) ).
     CHECK result EQ abap_false.
-    MESSAGE 'Not enough people to tend the crops.' TYPE 'S'.
+    MESSAGE 'But you do not have enough people to tend the fields!' TYPE 'S'.
   ENDMETHOD.
 
   METHOD enough_grain_to_seed.
@@ -202,9 +210,10 @@ CLASS lcl_regency IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD enough_bushels_to_buy.
-    result = xsdbool( amount_acres_to_buy * stats-current_acre_price <= stats-amount_stored_bushels ).
+    DATA(needed_amount_bushels) = amount_acres_to_buy * stats-current_acre_price.
+    result = xsdbool( needed_amount_bushels <= stats-amount_stored_bushels ).
     CHECK result EQ abap_false.
-    MESSAGE 'You have not enough bushels to buy.' TYPE 'S'.
+    MESSAGE |Think again, You would need { needed_amount_bushels } bushels of grain.| TYPE 'S'.
   ENDMETHOD.
 
   METHOD buy_acres.
@@ -221,7 +230,7 @@ CLASS lcl_regency IMPLEMENTATION.
   METHOD enough_acres_to_sell.
     result = xsdbool( amount_acres_to_sell < stats-amount_acres ).
     CHECK result EQ abap_false.
-    MESSAGE 'Not enough acres to sell.' TYPE 'S'.
+    MESSAGE |Not enough acres to sell.| TYPE 'S'.
   ENDMETHOD.
 
   METHOD sell_acres.
@@ -280,8 +289,7 @@ CLASS lcl_hamurabi_ui DEFINITION.
     METHODS output_title_screen IMPORTING stats TYPE state.
 
     METHODS output_statistics IMPORTING stats TYPE state.
-    METHODS output_report IMPORTING stats   TYPE state
-                                    harvest TYPE flag DEFAULT abap_true.
+    METHODS output_report IMPORTING stats   TYPE state.
 
     METHODS handle_buy_phase IMPORTING user_input TYPE i.
 
@@ -304,12 +312,12 @@ CLASS lcl_hamurabi_ui IMPLEMENTATION.
 
   METHOD constructor.
     mo_game = NEW lcl_regency( VALUE #( year_of_regency = 1
-                                        population = 95
+                                        population = 100
                                         amount_new_citizens = 5
                                         amount_starved_people = 0
-                                        amount_stored_bushels = 2800
-                                        amount_cropped_bushels = 3000
-                                        current_acre_price = 3 ) ).
+                                        cropped_bushels_per_acre = 3
+                                        amount_bushels_eaten_by_rats = 200
+                                        amount_acres = 1000 ) ).
   ENDMETHOD.
 
   METHOD start_game.
@@ -323,8 +331,7 @@ CLASS lcl_hamurabi_ui IMPLEMENTATION.
 
   METHOD output_title_screen.
     output_statistics( stats ).
-    output_report( stats = stats
-                   harvest = abap_false ).
+    output_report( stats ).
     mo_game->set_phase( phase-sell ).
   ENDMETHOD.
 
@@ -419,17 +426,23 @@ CLASS lcl_hamurabi_ui IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD output_report.
-    WRITE: / 'I beg to report to you, in year ', stats-year_of_regency LEFT-JUSTIFIED.
+    WRITE: / 'Hammurabi: I beg to report to you, in year ', stats-year_of_regency LEFT-JUSTIFIED.
     WRITE: / stats-amount_starved_people LEFT-JUSTIFIED, ' people starved.'.
     WRITE: / stats-amount_new_citizens LEFT-JUSTIFIED, ' came to the city.'.
-    IF harvest EQ abap_true.
-      WRITE:  / 'You harvested', stats-cropped_bushels_per_acre LEFT-JUSTIFIED, ' bushels per acre.'.
-      WRITE:  / 'Rats ate ', stats-amount_bushels_eaten_by_rats LEFT-JUSTIFIED, ' bushels.'.
-    ENDIF.
+    WRITE:  / 'You harvested', stats-cropped_bushels_per_acre LEFT-JUSTIFIED, ' bushels per acre.'.
+    WRITE:  / 'Rats ate ', stats-amount_bushels_eaten_by_rats LEFT-JUSTIFIED, ' bushels.'.
     IF stats-plague_event EQ abap_true.
-      WRITE:  / 'A plague hit your city, killing half of the population.'.
+      WRITE:  / 'A horible plague struck! Half the people died.'.
     ENDIF.
-    WRITE: / 'Start to rule!', icon_okay AS ICON.
+    IF stats-year_of_regency = 10.
+      DATA(percent_starved_per_year) = 1.
+      WRITE: / |In your 10-year term of office, { stats-total_starved_people / 10 }% of the population starved per year on average, a total of { stats-number_of_deaths } died!|.
+      DATA(acres_per_person) = stats-amount_acres / stats-population.
+      WRITE: / |You started with 10 acres per person and ended with { acres_per_person } acres per person!|.
+      WRITE: / 'So long for you!'.
+    ELSE.
+      WRITE: / 'Start to rule!', icon_okay AS ICON.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.
