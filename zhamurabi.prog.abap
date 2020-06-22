@@ -1,3 +1,22 @@
+*&---------------------------------------------------------------------*
+* From https://en.wikipedia.org/wiki/Hamurabi_(video_game)#Gameplay
+* The resources that the player must manage are people, acres of land, and bushels of grain.
+* These are managed over the course of (X) rounds, each of which represents a year.
+*   - Each person can farm a set amount of land, which produces grain.
+*   - Grain, in turn, can be used to feed people, who otherwise die the following round,
+*     or planted for the following year's crop.
+*   - The player may also buy or sell land to their neighbors each turn in exchange for grain.
+* Each round begins with an adviser stating "Hamurabi: I beg to report to you"
+* the current status of the city, including the prior year's harvest and change in population,
+* followed by a series of questions as to how many bushels of grain to spend on land, seeds,
+* and feeding the people.
+*
+* The price of land is randomly decided each round from between 17 and 26 bushels per acre
+* The amount of bushels generated each round is randomly decided,
+* random amounts of bushels are eaten by rats,
+* new people come to the city each year in random amounts.
+* Each year also presents the possibility of a plague reducing the population by half.
+
 REPORT zz_hamurabi.
 
 TYPES: BEGIN OF state,
@@ -9,8 +28,10 @@ TYPES: BEGIN OF state,
          amount_acres                 TYPE i,
          amount_starved_people        TYPE i,
          amount_cropped_bushels       TYPE i,
+         cropped_bushels_per_acre     TYPE i,
          amount_new_citizens          TYPE i,
          current_acre_price           TYPE i,
+         plague_event                 TYPE flag,
 
          amount_bushels_fed_to_people TYPE i,
          amount_bushels_eaten_by_rats TYPE i,
@@ -118,7 +139,10 @@ CLASS lcl_regency IMPLEMENTATION.
 
     " If there was a plague, 50% died
     IF random( 100 ) <= 15.
+      stats-plague_event = abap_true.
       stats-population = stats-population / 2.
+    ELSE.
+      stats-plague_event = abap_false.
     ENDIF.
 
   ENDMETHOD.
@@ -130,7 +154,9 @@ CLASS lcl_regency IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD harvest.
-    stats-amount_cropped_bushels = amount_acres_to_plant * random( 6 ).
+    stats-cropped_bushels_per_acre = random( 6 ).
+    stats-amount_cropped_bushels = amount_acres_to_plant * stats-cropped_bushels_per_acre.
+    stats-amount_bushels_eaten_by_rats = stats-amount_cropped_bushels * random( 15 ) / 100.
     stats-amount_stored_bushels = stats-amount_stored_bushels - stats-amount_bushels_eaten_by_rats + stats-amount_cropped_bushels.
   ENDMETHOD.
 
@@ -244,7 +270,7 @@ CLASS lcl_hamurabi_ui DEFINITION.
 
     METHODS handle_user_action
       IMPORTING user_input TYPE i
-      CHANGING screen     LIKE sy-lsind.
+      CHANGING  screen     LIKE sy-lsind.
 
     CLASS-METHODS output_title.
 
@@ -254,7 +280,8 @@ CLASS lcl_hamurabi_ui DEFINITION.
     METHODS output_title_screen IMPORTING stats TYPE state.
 
     METHODS output_statistics IMPORTING stats TYPE state.
-    METHODS output_report IMPORTING stats TYPE state.
+    METHODS output_report IMPORTING stats   TYPE state
+                                    harvest TYPE flag DEFAULT abap_true.
 
     METHODS handle_buy_phase IMPORTING user_input TYPE i.
 
@@ -296,7 +323,8 @@ CLASS lcl_hamurabi_ui IMPLEMENTATION.
 
   METHOD output_title_screen.
     output_statistics( stats ).
-    output_report( stats ).
+    output_report( stats = stats
+                   harvest = abap_false ).
     mo_game->set_phase( phase-sell ).
   ENDMETHOD.
 
@@ -394,6 +422,13 @@ CLASS lcl_hamurabi_ui IMPLEMENTATION.
     WRITE: / 'I beg to report to you, in year ', stats-year_of_regency LEFT-JUSTIFIED.
     WRITE: / stats-amount_starved_people LEFT-JUSTIFIED, ' people starved.'.
     WRITE: / stats-amount_new_citizens LEFT-JUSTIFIED, ' came to the city.'.
+    IF harvest EQ abap_true.
+      WRITE:  / 'You harvested', stats-cropped_bushels_per_acre LEFT-JUSTIFIED, ' bushels per acre.'.
+      WRITE:  / 'Rats ate ', stats-amount_bushels_eaten_by_rats LEFT-JUSTIFIED, ' bushels.'.
+    ENDIF.
+    IF stats-plague_event EQ abap_true.
+      WRITE:  / 'A plague hit your city, killing half of the population.'.
+    ENDIF.
     WRITE: / 'Start to rule!', icon_okay AS ICON.
   ENDMETHOD.
 
