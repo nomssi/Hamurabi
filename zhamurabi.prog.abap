@@ -1,144 +1,111 @@
-REPORT zhamurabi.
+REPORT zz_hamurabi.
 
-CLASS lcl_hamurabi DEFINITION.
+TYPES: BEGIN OF state,
+         year_of_regency              TYPE numc2,
+         game_phase                   TYPE i,
+
+         population                   TYPE i,
+         amount_stored_bushels        TYPE i,
+         amount_acres                 TYPE i,
+         amount_starved_people        TYPE i,
+         amount_cropped_bushels       TYPE i,
+         amount_new_citizens          TYPE i,
+         current_acre_price           TYPE i,
+
+         amount_bushels_fed_to_people TYPE i,
+         amount_bushels_eaten_by_rats TYPE i,
+       END OF state.
+
+CONSTANTS: BEGIN OF phase,
+             init      TYPE i VALUE 0,
+             buy       TYPE i VALUE 1,
+             sell      TYPE i VALUE 2,
+             feed      TYPE i VALUE 3,
+             plant     TYPE i VALUE 4,
+             round_end TYPE i VALUE 5,
+             report    TYPE i VALUE 6,
+           END OF phase.
+
+CLASS lcl_regency DEFINITION.
 
   PUBLIC SECTION.
-    TYPES: BEGIN OF state,
-              year_of_regency TYPE numc2,
-              game_phase TYPE i,
-
-              population TYPE i,
-              amount_stored_bushels TYPE i,
-              amount_acres TYPE i,
-              amount_starved_people TYPE i,
-              amount_cropped_bushels TYPE i,
-              amount_new_citizens TYPE i,
-              current_acre_price TYPE i,
-
-              amount_bushels_fed_to_people TYPE i,
-              amount_bushels_eaten_by_rats TYPE i,
-           END OF state.
-
     DATA stats TYPE state READ-ONLY.
 
-    METHODS constructor.
+    METHODS constructor IMPORTING is_stats TYPE state.
 
-    METHODS set_game_phase IMPORTING phase TYPE i.
+    METHODS set_phase IMPORTING phase TYPE i.
 
-    METHODS proceed_one_year_in_regency IMPORTING acres_harvested TYPE i.
+    METHODS simulate_one_year IMPORTING acres_harvested TYPE i.
 
-    METHODS try_to_sell_land
-      IMPORTING
-         acres TYPE i.
+    METHODS try_to_sell_land IMPORTING acres TYPE i.
 
-    METHODS try_to_grow_crops
-      IMPORTING
-        acres TYPE i.
+    METHODS try_to_grow_crops IMPORTING acres TYPE i.
 
-    METHODS try_to_feed_people
-      IMPORTING
-        bushels TYPE i.
+    METHODS try_to_feed_people IMPORTING bushels TYPE i.
 
-    METHODS try_to_buy_land
-      IMPORTING
-        acres TYPE i.
+    METHODS try_to_buy_land IMPORTING acres TYPE i.
 
     METHODS calculate_new_acre_price.
 
   PROTECTED SECTION.
 
   PRIVATE SECTION.
-    METHODS start_conditions RETURNING VALUE(stats) TYPE state.
-
     METHODS calculate_new_citizens.
 
     METHODS calculate_population_loss.
 
-    METHODS harvest
-      IMPORTING
-        amount_acres_to_plant TYPE i.
+    METHODS harvest IMPORTING amount_acres_to_plant TYPE i.
 
-    METHODS buy_acres
-      IMPORTING
-        amount_acres_to_buy TYPE i.
+    METHODS buy_acres IMPORTING amount_acres_to_buy TYPE i.
 
-    METHODS sell_acres
-      IMPORTING
-        amount_acres_to_sell TYPE i.
+    METHODS sell_acres IMPORTING amount_acres_to_sell TYPE i.
 
-    METHODS feed_people
-      IMPORTING
-        amount_bushels TYPE i.
+    METHODS feed_people IMPORTING amount_bushels TYPE i.
 
-    METHODS plant_acres
-      IMPORTING
-        amount_acres_to_plant TYPE i.
+    METHODS plant_acres IMPORTING amount_acres_to_plant TYPE i.
 
     METHODS enough_bushels_to_feed_people
-      IMPORTING
-        amount_bushels TYPE i
-      RETURNING
-        VALUE(result)  TYPE abap_bool.
+      IMPORTING amount_bushels TYPE i
+      RETURNING VALUE(result)  TYPE abap_bool.
 
     METHODS enough_acres_to_plant
-      IMPORTING
-        amount_acres_to_plant TYPE i
-      RETURNING
-        VALUE(result)         TYPE abap_bool.
+      IMPORTING amount_acres_to_plant TYPE i
+      RETURNING VALUE(result)         TYPE abap_bool.
 
     METHODS enough_grain_to_seed
-      IMPORTING
-        amount_acres_to_plant TYPE i
-      RETURNING
-        VALUE(result)         TYPE abap_bool.
+      IMPORTING amount_acres_to_plant TYPE i
+      RETURNING VALUE(result)         TYPE abap_bool.
 
     METHODS enough_people_to_tend_crops
-      IMPORTING
-        amount_acres_to_plant TYPE i
-      RETURNING
-        VALUE(result)         TYPE abap_bool.
+      IMPORTING amount_acres_to_plant TYPE i
+      RETURNING VALUE(result)         TYPE abap_bool.
 
     METHODS enough_bushels_to_buy
-      IMPORTING
-        amount_acres_to_buy TYPE i
-      RETURNING
-        VALUE(result)       TYPE abap_bool.
+      IMPORTING amount_acres_to_buy TYPE i
+      RETURNING VALUE(result)       TYPE abap_bool.
 
     METHODS enough_acres_to_sell
-      IMPORTING
-        amount_acres_to_sell TYPE i
-      RETURNING
-        VALUE(result)        TYPE abap_bool.
+      IMPORTING amount_acres_to_sell TYPE i
+      RETURNING VALUE(result)        TYPE abap_bool.
 
-    CLASS-METHODS random IMPORTING min TYPE i DEFAULT 1
-                                   max TYPE i
+    CLASS-METHODS random IMPORTING min           TYPE i DEFAULT 1
+                                   max           TYPE i
                          RETURNING VALUE(rv_int) TYPE i.
 ENDCLASS.
 
 **********************************************************************
 
-CLASS lcl_hamurabi IMPLEMENTATION.
+CLASS lcl_regency IMPLEMENTATION.
 
   METHOD constructor.
-    stats = start_conditions( ).
-  ENDMETHOD.
-
-  METHOD set_game_phase.
-    stats-game_phase = phase.
-  ENDMETHOD.
-
-  METHOD start_conditions.
-    stats = VALUE #( year_of_regency = 1
-                     population = 95
-                     amount_new_citizens = 5
-                     amount_starved_people = 0
-                     amount_stored_bushels = 2800
-                     amount_cropped_bushels = 3000
-                     current_acre_price = 3 ).
+    stats = is_stats.
     stats-amount_bushels_eaten_by_rats = stats-amount_cropped_bushels - stats-amount_stored_bushels.
     stats-amount_acres = stats-amount_cropped_bushels / stats-current_acre_price.
   ENDMETHOD.
 
+  METHOD set_phase.
+    stats-game_phase = phase.
+  ENDMETHOD.
 
   METHOD calculate_population_loss.
     " How many starved?
@@ -176,7 +143,7 @@ CLASS lcl_hamurabi IMPLEMENTATION.
       AND enough_grain_to_seed( acres )
       AND enough_people_to_tend_crops( acres ).
     plant_acres( acres ).
-    set_game_phase( 6 ).
+    set_phase( phase-report ).
   ENDMETHOD.
 
   METHOD enough_people_to_tend_crops.
@@ -205,7 +172,7 @@ CLASS lcl_hamurabi IMPLEMENTATION.
   METHOD try_to_buy_land.
     CHECK enough_bushels_to_buy( acres ).
     buy_acres( acres ).
-    set_game_phase( 3 ).  " Now sell land
+    set_phase( phase-feed ).
   ENDMETHOD.
 
   METHOD enough_bushels_to_buy.
@@ -222,7 +189,7 @@ CLASS lcl_hamurabi IMPLEMENTATION.
   METHOD try_to_sell_land.
     CHECK enough_acres_to_sell( acres ).
     sell_acres( acres ).
-    set_game_phase( 4 ).  " Now feed your people
+    set_phase( phase-plant ).
   ENDMETHOD.
 
   METHOD enough_acres_to_sell.
@@ -237,10 +204,9 @@ CLASS lcl_hamurabi IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD try_to_feed_people.
-    IF enough_bushels_to_feed_people( bushels ).
-      feed_people( bushels ).
-      set_game_phase( 5 ).
-    ENDIF.
+    CHECK enough_bushels_to_feed_people( bushels ).
+    feed_people( bushels ).
+    set_phase( phase-round_end ).
   ENDMETHOD.
 
   METHOD enough_bushels_to_feed_people.
@@ -249,7 +215,7 @@ CLASS lcl_hamurabi IMPLEMENTATION.
     MESSAGE 'Not enough bushels to feed.' TYPE 'S'.
   ENDMETHOD.
 
-  METHOD proceed_one_year_in_regency.
+  METHOD simulate_one_year.
     stats-year_of_regency = CONV numc2( stats-year_of_regency + 1 ).
     calculate_population_loss( ).
     calculate_new_citizens( ).
@@ -270,61 +236,57 @@ ENDCLASS.
 
 **********************************************************************
 
-CLASS lcl_hamurabi_classic_ui DEFINITION.
+CLASS lcl_hamurabi_ui DEFINITION.
   PUBLIC SECTION.
     METHODS start_game.
 
     METHODS constructor.
 
     METHODS handle_user_action
-      IMPORTING
-        user_input TYPE i
-      CHANGING
-        screen     LIKE sy-lsind.
+      IMPORTING user_input TYPE i
+      CHANGING screen     LIKE sy-lsind.
 
     CLASS-METHODS output_title.
 
   PRIVATE SECTION.
-    CONSTANTS: BEGIN OF screen_enum,
-                 report    TYPE i VALUE 0,
-                 buy       TYPE i VALUE 1,
-                 sell      TYPE i VALUE 2,
-                 feed      TYPE i VALUE 3,
-                 plant     TYPE i VALUE 4,
-                 round_end TYPE i VALUE 5,
-               END OF screen_enum.
+    DATA mo_game TYPE REF TO lcl_regency.
 
-    DATA mo_logic TYPE REF TO lcl_hamurabi.
+    METHODS output_title_screen IMPORTING stats TYPE state.
 
-    METHODS output_title_screen IMPORTING stats TYPE lcl_hamurabi=>state.
-
-    METHODS output_statistics IMPORTING stats TYPE lcl_hamurabi=>state.
-    METHODS output_report IMPORTING stats TYPE lcl_hamurabi=>state.
+    METHODS output_statistics IMPORTING stats TYPE state.
+    METHODS output_report IMPORTING stats TYPE state.
 
     METHODS handle_buy_phase IMPORTING user_input TYPE i.
 
     METHODS handle_sell_phase IMPORTING user_input TYPE i
-                              CHANGING screen     LIKE sy-lsind.
+                              CHANGING  screen     LIKE sy-lsind.
 
     METHODS handle_feed_phase IMPORTING user_input TYPE i
-                              CHANGING screen     TYPE syst-lsind.
+                              CHANGING  screen     TYPE syst-lsind.
 
     METHODS handle_plant_phase IMPORTING user_input TYPE i
-                               CHANGING screen     TYPE syst-lsind.
+                               CHANGING  screen     TYPE syst-lsind.
 
     METHODS handle_round_end IMPORTING user_input TYPE i
-                             CHANGING screen     TYPE syst-lsind.
+                             CHANGING  screen     TYPE syst-lsind.
 ENDCLASS.
 
 **********************************************************************
 
-CLASS lcl_hamurabi_classic_ui IMPLEMENTATION.
+CLASS lcl_hamurabi_ui IMPLEMENTATION.
+
   METHOD constructor.
-    mo_logic = NEW lcl_hamurabi( ).
+    mo_game = NEW lcl_regency( VALUE #( year_of_regency = 1
+                                        population = 95
+                                        amount_new_citizens = 5
+                                        amount_starved_people = 0
+                                        amount_stored_bushels = 2800
+                                        amount_cropped_bushels = 3000
+                                        current_acre_price = 3 ) ).
   ENDMETHOD.
 
   METHOD start_game.
-    output_title_screen( mo_logic->stats ).
+    output_title_screen( mo_game->stats ).
   ENDMETHOD.
 
   METHOD output_title.
@@ -335,90 +297,87 @@ CLASS lcl_hamurabi_classic_ui IMPLEMENTATION.
   METHOD output_title_screen.
     output_statistics( stats ).
     output_report( stats ).
-    mo_logic->set_game_phase( 2 ).
+    mo_game->set_phase( phase-sell ).
   ENDMETHOD.
 
   METHOD handle_user_action.
     CASE screen.
-      WHEN screen_enum-buy.
+      WHEN phase-buy.
         handle_buy_phase( user_input ).
 
-      WHEN screen_enum-sell.
-        handle_sell_phase(
-          EXPORTING user_input = user_input
-          CHANGING screen = screen ).
+      WHEN phase-sell.
+        handle_sell_phase( EXPORTING user_input = user_input
+                           CHANGING screen = screen ).
 
-      WHEN screen_enum-feed.
-        handle_feed_phase(
-          EXPORTING user_input = user_input
-          CHANGING screen = screen ).
+      WHEN phase-feed.
+        handle_feed_phase( EXPORTING user_input = user_input
+                           CHANGING screen = screen ).
 
-      WHEN screen_enum-plant.
-        handle_plant_phase(
-        EXPORTING user_input = user_input
-        CHANGING screen = screen ).
+      WHEN phase-plant.
+        handle_plant_phase( EXPORTING user_input = user_input
+                            CHANGING screen = screen ).
 
-      WHEN screen_enum-round_end.
-        handle_round_end(
-          EXPORTING user_input = user_input
-          CHANGING screen = screen ).
+      WHEN phase-round_end.
+        handle_round_end( EXPORTING user_input = user_input
+                          CHANGING screen = screen ).
     ENDCASE.
   ENDMETHOD.
 
   METHOD handle_round_end.
-    mo_logic->try_to_grow_crops( user_input ).
+    mo_game->try_to_grow_crops( user_input ).
 
-    IF mo_logic->stats-game_phase = 6.
-      screen = 0.
-      mo_logic->set_game_phase( 2 ).
-      mo_logic->proceed_one_year_in_regency( user_input ).
-      output_report( mo_logic->stats ).
+    IF mo_game->stats-game_phase = phase-report.
+      screen = phase-init.
+      mo_game->set_phase( phase-sell ).
+
+      mo_game->simulate_one_year( user_input ).
+      output_report( mo_game->stats ).
     ELSE.
-      screen = screen_enum-plant.
+      screen = phase-plant.
     ENDIF.
   ENDMETHOD.
 
   METHOD handle_plant_phase.
-    mo_logic->try_to_feed_people( user_input ).
+    mo_game->try_to_feed_people( user_input ).
 
-    IF mo_logic->stats-game_phase = 5.
-      output_statistics( mo_logic->stats ).
+    IF mo_game->stats-game_phase = phase-round_end.
+      output_statistics( mo_game->stats ).
       WRITE: / 'How many acres do you wish to plant with seed?', user_input LEFT-JUSTIFIED COLOR COL_POSITIVE INPUT ON, icon_okay AS ICON.
     ELSE.
-      screen = screen_enum-feed.
+      screen = phase-feed.
     ENDIF.
   ENDMETHOD.
 
   METHOD handle_feed_phase.
-    mo_logic->try_to_sell_land( user_input ).
+    mo_game->try_to_sell_land( user_input ).
 
-    IF mo_logic->stats-game_phase = 4.
-      output_statistics( mo_logic->stats ).
+    IF mo_game->stats-game_phase = phase-plant.
+      output_statistics( mo_game->stats ).
       WRITE: / 'How many bushels do you wish to feed your people (20 per citizen)?', user_input LEFT-JUSTIFIED COLOR COL_POSITIVE INPUT ON, icon_okay AS ICON.
     ELSE.
-      screen = screen_enum-sell.
+      screen = phase-sell.
     ENDIF.
   ENDMETHOD.
 
   METHOD handle_sell_phase.
-    mo_logic->try_to_buy_land( user_input ).
+    mo_game->try_to_buy_land( user_input ).
 
-    IF mo_logic->stats-game_phase = 3.
-      output_statistics( mo_logic->stats ).
-      WRITE: / 'Land is trading at ', mo_logic->stats-current_acre_price LEFT-JUSTIFIED, ' bushels'.
+    IF mo_game->stats-game_phase = phase-feed.
+      output_statistics( mo_game->stats ).
+      WRITE: / 'Land is trading at ', mo_game->stats-current_acre_price LEFT-JUSTIFIED, ' bushels'.
       WRITE: / 'How many acres do you wish to sell?', user_input LEFT-JUSTIFIED COLOR COL_POSITIVE INPUT ON, icon_okay AS ICON.
     ELSE.
-      screen = screen_enum-buy.
+      screen = phase-buy.
     ENDIF.
   ENDMETHOD.
 
   METHOD handle_buy_phase.
-    IF mo_logic->stats-game_phase = 2.
-      mo_logic->set_game_phase( 2 ).
-      mo_logic->calculate_new_acre_price( ).
+    IF mo_game->stats-game_phase = phase-sell.
+      mo_game->set_phase( phase-sell ).
+      mo_game->calculate_new_acre_price( ).
 
-      output_statistics( mo_logic->stats ).
-      WRITE: / 'Land is trading at ', mo_logic->stats-current_acre_price LEFT-JUSTIFIED, ' bushels'.
+      output_statistics( mo_game->stats ).
+      WRITE: / 'Land is trading at ', mo_game->stats-current_acre_price LEFT-JUSTIFIED, ' bushels'.
       WRITE: / 'How many acres do you wish to buy? ', user_input LEFT-JUSTIFIED COLOR COL_POSITIVE INPUT ON, icon_okay AS ICON.
     ENDIF.
   ENDMETHOD.
@@ -442,16 +401,16 @@ ENDCLASS.
 
 **********************************************************************
 
-DATA hamurabi_classic_ui TYPE REF TO lcl_hamurabi_classic_ui.
+DATA hamurabi_classic_ui TYPE REF TO lcl_hamurabi_ui.
 DATA user_input TYPE i.
 
 **********************************************************************
 
 TOP-OF-PAGE DURING LINE-SELECTION.
-  lcl_hamurabi_classic_ui=>output_title( ).
+  lcl_hamurabi_ui=>output_title( ).
 
 START-OF-SELECTION.
-  hamurabi_classic_ui = NEW lcl_hamurabi_classic_ui( ).
+  hamurabi_classic_ui = NEW lcl_hamurabi_ui( ).
   hamurabi_classic_ui->start_game( ).
 
 AT LINE-SELECTION.
